@@ -18,7 +18,12 @@ func main() {
 	signal.Notify(wait, os.Interrupt)
 
 	// TODO find an alternative to \r for terminals that don't support it?
-	go func() { fmt.Println("\r<", <-output); fmt.Printf("%s> ", "noye") }()
+	go func() {
+		for {
+			fmt.Println("\r<", <-output)
+			fmt.Printf("%s> ", "noye")
+		}
+	}()
 
 	fmt.Printf("%s> ", "noye")
 	for err := scanner.Err(); err == nil && scanner.Scan(); {
@@ -41,7 +46,6 @@ func handle(line string) {
 	line = strings.TrimSpace(line)
 	fields := strings.Fields(line)
 	if len(fields) == 0 {
-		printHelp()
 		return
 	}
 
@@ -145,9 +149,7 @@ func init() {
 
 			if script, ok := sandbox.Scripts()[parts[1]]; ok {
 				log.Printf("source for '%s' located at '%s'\n", parts[1], script.Path())
-				//log.Println(strings.Repeat("-", 40))
 				log.Println(strings.TrimSpace(script.Source()))
-				//log.Println(strings.Repeat("-", 40))
 			}
 		},
 	}
@@ -157,7 +159,7 @@ var (
 	commands map[string]command
 	sandbox  noye.Manager
 	scanner  = bufio.NewScanner(os.Stdin)
-	output   = make(chan string, 4)
+	output   = make(chan string)
 	from     = "test"
 	channel  = "#noye"
 )
