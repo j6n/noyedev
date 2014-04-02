@@ -29,15 +29,26 @@ func main() {
 	<-wait
 }
 
+func printHelp() {
+	var help []string
+	for cmd := range commands {
+		help = append(help, cmd)
+	}
+	log.Println("list of commands:", strings.Join(help, ", "))
+}
+
 func handle(line string) {
 	line = strings.TrimSpace(line)
 	fields := strings.Fields(line)
 	if len(fields) == 0 {
+		printHelp()
 		return
 	}
 
 	if cmd, ok := commands[fields[0]]; ok {
 		cmd(line, fields...)
+	} else {
+		printHelp()
 	}
 }
 
