@@ -62,6 +62,12 @@ func init() {
 	mock.JoinFn = func(target string) {
 		output <- fmt.Sprintf("(JOIN) %s", target)
 	}
+	mock.PartFn = func(target string) {
+		output <- fmt.Sprintf("(PART) %s", target)
+	}
+	mock.SendFn = func(f string, a ...interface{}) {
+		output <- fmt.Sprintf("(SEND) %s", fmt.Sprintf(f, a...))
+	}
 
 	sandbox = ext.New(mock)
 
@@ -156,4 +162,5 @@ var (
 	channel  = "#noye"
 )
 
+// TODO make this a struct so commands can be more than just funcs
 type command func(string, ...string)
