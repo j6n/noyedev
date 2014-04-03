@@ -147,7 +147,11 @@ func init() {
 				return
 			}
 
-			if script, ok := sandbox.Scripts()[parts[1]]; ok {
+			for _, script := range sandbox.Scripts() {
+				if script.Name() != parts[1] {
+					continue
+				}
+
 				log.Printf("source for '%s' located at '%s'\n", parts[1], script.Path())
 				log.Println(strings.TrimSpace(script.Source()))
 			}
