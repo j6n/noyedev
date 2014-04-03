@@ -88,7 +88,8 @@ func set(line string, parts ...string) {
 		log.Println("available options: 'ch #channel', 'from user'")
 	}
 }
-func ch(line string, parts ...string) {
+
+func chanMsg(line string, parts ...string) {
 	if len(parts) == 1 {
 		return
 	}
@@ -97,7 +98,7 @@ func ch(line string, parts ...string) {
 	sandbox.Respond(msg)
 }
 
-func pm(line string, parts ...string) {
+func privMsg(line string, parts ...string) {
 	if len(parts) == 1 {
 		return
 	}
@@ -106,10 +107,11 @@ func pm(line string, parts ...string) {
 	sandbox.Respond(msg)
 }
 
-func raw(line string, parts ...string) {
+func rawMsg(line string, parts ...string) {
 	if len(parts) == 1 {
 		return
 	}
+
 	msg := noye.IrcMessage{
 		Source:  from + "!user@localhost",
 		Command: parts[1],
@@ -180,9 +182,9 @@ func init() {
 		"load":   load,
 		"quit":   quit,
 		"set":    set,
-		"ch":     ch,
-		"pm":     pm,
-		"raw":    raw,
+		"#":      chanMsg,
+		">":      privMsg,
+		".":      rawMsg,
 		"dump":   dump,
 		"source": source,
 	}
