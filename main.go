@@ -58,7 +58,7 @@ func handle(line string) {
 
 // methods for the REPL
 func load() Command {
-	cmd := newCommand("load path/to/file.js", nil)
+	cmd := newCommand("load path/to/file.js")
 	cmd.fn = func(line string, parts ...string) {
 		if len(parts) == 1 {
 			log.Println(cmd.Help())
@@ -74,7 +74,7 @@ func load() Command {
 }
 
 func quit() Command {
-	cmd := newCommand("quits the REPL", nil)
+	cmd := newCommand("quits the REPL")
 	cmd.fn = func(line string, parts ...string) {
 		os.Exit(0)
 	}
@@ -82,7 +82,7 @@ func quit() Command {
 }
 
 func set() Command {
-	cmd := newCommand("sets REPL options", nil)
+	cmd := newCommand("sets REPL options")
 	cmd.fn = func(line string, parts ...string) {
 		so := func(in string) bool {
 			return parts[1] == in && len(parts) > 2
@@ -102,7 +102,7 @@ func set() Command {
 }
 
 func chanMsg() Command {
-	cmd := newCommand("send text as a chan msg", nil)
+	cmd := newCommand("send text as a chan msg")
 	cmd.fn = func(line string, parts ...string) {
 		if len(parts) == 1 {
 			log.Println(cmd.Help())
@@ -116,7 +116,7 @@ func chanMsg() Command {
 }
 
 func privMsg() Command {
-	cmd := newCommand("send text as a priv msg", nil)
+	cmd := newCommand("send text as a priv msg")
 	cmd.fn = func(line string, parts ...string) {
 		if len(parts) == 1 {
 			log.Println(cmd.Help())
@@ -130,7 +130,7 @@ func privMsg() Command {
 }
 
 func rawMsg() Command {
-	cmd := newCommand("send text as a raw msg", nil)
+	cmd := newCommand("send text as a raw msg")
 	cmd.fn = func(line string, parts ...string) {
 		if len(parts) == 1 {
 			log.Println(cmd.Help())
@@ -151,7 +151,7 @@ func rawMsg() Command {
 }
 
 func dump() Command {
-	cmd := newCommand("dumps the state of the REPL", nil)
+	cmd := newCommand("dumps the state of the REPL")
 	cmd.fn = func(line string, parts ...string) {
 		log.Printf("from: '%s'\n", from)
 		log.Printf("channel: '%s'\n", channel)
@@ -165,7 +165,7 @@ func dump() Command {
 }
 
 func source() Command {
-	cmd := newCommand("dumps source for script", nil)
+	cmd := newCommand("dumps source for script")
 	cmd.fn = func(line string, parts ...string) {
 		if len(parts) == 1 {
 			log.Println(cmd.Help())
@@ -185,7 +185,7 @@ func source() Command {
 }
 
 func help() Command {
-	cmd := newCommand("display help for commands", nil)
+	cmd := newCommand("display help for commands")
 	cmd.fn = func(line string, parts ...string) {
 		if len(parts) == 1 {
 			printHelp()
@@ -226,8 +226,8 @@ func (c command) Do(line string, parts ...string) {
 	c.fn(line, parts...)
 }
 
-func newCommand(help string, fn func(string, ...string)) command {
-	return command{help, fn}
+func newCommand(help string) command {
+	return command{help}
 }
 
 func init() {
