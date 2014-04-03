@@ -56,6 +56,108 @@ func handle(line string) {
 	}
 }
 
+// methods for the REPL
+func load(line string, parts ...string) {
+	if len(parts) == 1 {
+		log.Println("usage: 'load path/to/file'")
+		return
+	}
+
+	file := parts[1]
+	if err := sandbox.Load(file); err != nil {
+		log.Printf("error loading '%s': %s\n", file, err)
+	}
+}
+
+func quit(line string, parts ...string) {
+	os.Exit(0)
+}
+
+func set(line string, parts ...string) {
+	so := func(in string) bool {
+		return parts[1] == in && len(parts) > 2
+	}
+	switch {
+	case so("ch"):
+		log.Printf("setting channel to '%s'\n", parts[1])
+		channel = parts[1]
+	case so("from"):
+		log.Printf("setting from to '%s'\n", parts[1])
+		from = parts[1]
+	default:
+		log.Println("available options: 'ch #channel', 'from user'")
+	}
+}
+func ch(line string, parts ...string) {
+	if len(parts) == 1 {
+		return
+	}
+
+	msg := noye.Message{from, channel, strings.Join(parts[1:], " ")}
+	sandbox.Respond(msg)
+}
+
+func pm(line string, parts ...string) {
+	if len(parts) == 1 {
+		return
+	}
+
+	msg := noye.Message{from, "noye", strings.Join(parts[1:], " ")}
+	sandbox.Respond(msg)
+}
+
+func raw(line string, parts ...string) {
+	if len(parts) == 1 {
+		return
+	}
+	msg := noye.IrcMessage{
+		Source:  from + "!user@localhost",
+		Command: parts[1],
+	}
+	if len(parts) > 2 {
+		msg.Args = parts[2:]
+	}
+
+	sandbox.Listen(msg)
+}
+
+func dump(line string, parts ...string) {
+	log.Printf("from: '%s'\n", from)
+	log.Printf("channel: '%s'\n", channel)
+
+	log.Println("loaded scripts:")
+	for k, v := range sandbox.Scripts() {
+		log.Printf("%s @ %s\n", k, v.Path())
+	}
+}
+
+func source(line string, parts ...string) {
+	if len(parts) < 1 {
+		return
+	}
+
+	for _, script := range sandbox.Scripts() {
+		if script.Name() != parts[1] {
+			continue
+		}
+
+		log.Printf("source for '%s' located at '%s'\n", parts[1], script.Path())
+		log.Println(strings.TrimSpace(script.Source()))
+	}
+}
+
+var (
+	commands map[string]command
+	sandbox  noye.Manager
+	scanner  = bufio.NewScanner(os.Stdin)
+	output   = make(chan string)
+	from     = "test"
+	channel  = "#noye"
+)
+
+// TODO make this a struct so commands can be more than just funcs
+type command func(string, ...string)
+
 func init() {
 	log.SetFlags(0)
 
@@ -74,99 +176,14 @@ func init() {
 	}
 
 	sandbox = ext.New(mock)
-
 	commands = map[string]command{
-		"load": func(line string, parts ...string) {
-			if len(parts) == 1 {
-				log.Println("usage: 'load path/to/file'")
-				return
-			}
-
-			file := parts[1]
-			if err := sandbox.Load(file); err != nil {
-				log.Printf("error loading '%s': %s\n", file, err)
-			}
-		},
-		"quit": func(line string, parts ...string) { os.Exit(0) },
-		"set": func(line string, parts ...string) {
-			so := func(in string) bool {
-				return parts[1] == in && len(parts) > 2
-			}
-			switch {
-			case so("ch"):
-				log.Printf("setting channel to '%s'\n", parts[1])
-				channel = parts[1]
-			case so("from"):
-				log.Printf("setting from to '%s'\n", parts[1])
-				from = parts[1]
-			default:
-				log.Println("available options: 'ch #channel', 'from user'")
-			}
-		},
-		"ch": func(line string, parts ...string) {
-			if len(parts) == 1 {
-				return
-			}
-
-			msg := noye.Message{from, channel, strings.Join(parts[1:], " ")}
-			sandbox.Respond(msg)
-		},
-		"pm": func(line string, parts ...string) {
-			if len(parts) == 1 {
-				return
-			}
-
-			msg := noye.Message{from, "noye", strings.Join(parts[1:], " ")}
-			sandbox.Respond(msg)
-		},
-		"raw": func(line string, parts ...string) {
-			if len(parts) == 1 {
-				return
-			}
-			msg := noye.IrcMessage{
-				Source:  from + "!user@localhost",
-				Command: parts[1],
-			}
-			if len(parts) > 2 {
-				msg.Args = parts[2:]
-			}
-
-			sandbox.Listen(msg)
-		},
-		"dump": func(line string, parts ...string) {
-			log.Printf("from: '%s'\n", from)
-			log.Printf("channel: '%s'\n", channel)
-
-			log.Println("loaded scripts:")
-			for k, v := range sandbox.Scripts() {
-				log.Printf("%s @ %s\n", k, v.Path())
-			}
-		},
-		"source": func(line string, parts ...string) {
-			if len(parts) < 1 {
-				return
-			}
-
-			for _, script := range sandbox.Scripts() {
-				if script.Name() != parts[1] {
-					continue
-				}
-
-				log.Printf("source for '%s' located at '%s'\n", parts[1], script.Path())
-				log.Println(strings.TrimSpace(script.Source()))
-			}
-		},
+		"load":   load,
+		"quit":   quit,
+		"set":    set,
+		"ch":     ch,
+		"pm":     pm,
+		"raw":    raw,
+		"dump":   dump,
+		"source": source,
 	}
 }
-
-var (
-	commands map[string]command
-	sandbox  noye.Manager
-	scanner  = bufio.NewScanner(os.Stdin)
-	output   = make(chan string)
-	from     = "test"
-	channel  = "#noye"
-)
-
-// TODO make this a struct so commands can be more than just funcs
-type command func(string, ...string)
