@@ -36,8 +36,8 @@ func main() {
 
 func printHelp() {
 	var help []string
-	for cmd := range commands {
-		help = append(help, cmd)
+	for name := range commands {
+		help = append(help, name)
 	}
 	log.Println("list of commands:", strings.Join(help, ", "))
 }
@@ -50,106 +50,157 @@ func handle(line string) {
 	}
 
 	if cmd, ok := commands[fields[0]]; ok {
-		cmd(line, fields...)
+		cmd.Do(line, fields...)
 	} else {
 		printHelp()
 	}
 }
 
 // methods for the REPL
-func load(line string, parts ...string) {
-	if len(parts) == 1 {
-		log.Println("usage: 'load path/to/file'")
-		return
-	}
-
-	file := parts[1]
-	if err := sandbox.Load(file); err != nil {
-		log.Printf("error loading '%s': %s\n", file, err)
-	}
-}
-
-func quit(line string, parts ...string) {
-	os.Exit(0)
-}
-
-func set(line string, parts ...string) {
-	so := func(in string) bool {
-		return parts[1] == in && len(parts) > 2
-	}
-	switch {
-	case so("ch"):
-		log.Printf("setting channel to '%s'\n", parts[1])
-		channel = parts[1]
-	case so("from"):
-		log.Printf("setting from to '%s'\n", parts[1])
-		from = parts[1]
-	default:
-		log.Println("available options: 'ch #channel', 'from user'")
-	}
-}
-
-func chanMsg(line string, parts ...string) {
-	if len(parts) == 1 {
-		return
-	}
-
-	msg := noye.Message{from, channel, strings.Join(parts[1:], " ")}
-	sandbox.Respond(msg)
-}
-
-func privMsg(line string, parts ...string) {
-	if len(parts) == 1 {
-		return
-	}
-
-	msg := noye.Message{from, "noye", strings.Join(parts[1:], " ")}
-	sandbox.Respond(msg)
-}
-
-func rawMsg(line string, parts ...string) {
-	if len(parts) == 1 {
-		return
-	}
-
-	msg := noye.IrcMessage{
-		Source:  from + "!user@localhost",
-		Command: parts[1],
-	}
-	if len(parts) > 2 {
-		msg.Args = parts[2:]
-	}
-
-	sandbox.Listen(msg)
-}
-
-func dump(line string, parts ...string) {
-	log.Printf("from: '%s'\n", from)
-	log.Printf("channel: '%s'\n", channel)
-
-	log.Println("loaded scripts:")
-	for k, v := range sandbox.Scripts() {
-		log.Printf("%s @ %s\n", k, v.Path())
-	}
-}
-
-func source(line string, parts ...string) {
-	if len(parts) < 1 {
-		return
-	}
-
-	for _, script := range sandbox.Scripts() {
-		if script.Name() != parts[1] {
-			continue
+func load() Command {
+	cmd := newCommand("load path/to/file.js", nil)
+	cmd.fn = func(line string, parts ...string) {
+		if len(parts) == 1 {
+			log.Println(cmd.Help())
+			return
 		}
 
-		log.Printf("source for '%s' located at '%s'\n", parts[1], script.Path())
-		log.Println(strings.TrimSpace(script.Source()))
+		file := parts[1]
+		if err := sandbox.Load(file); err != nil {
+			log.Printf("error loading '%s': %s\n", file, err)
+		}
 	}
+	return cmd
+}
+
+func quit() Command {
+	cmd := newCommand("quits the REPL", nil)
+	cmd.fn = func(line string, parts ...string) {
+		os.Exit(0)
+	}
+	return cmd
+}
+
+func set() Command {
+	cmd := newCommand("sets REPL options", nil)
+	cmd.fn = func(line string, parts ...string) {
+		so := func(in string) bool {
+			return parts[1] == in && len(parts) > 2
+		}
+		switch {
+		case so("ch"):
+			log.Printf("setting channel to '%s'\n", parts[1])
+			channel = parts[1]
+		case so("from"):
+			log.Printf("setting from to '%s'\n", parts[1])
+			from = parts[1]
+		default:
+			log.Println("available options: 'ch #channel', 'from user'")
+		}
+	}
+	return cmd
+}
+
+func chanMsg() Command {
+	cmd := newCommand("send text as a chan msg", nil)
+	cmd.fn = func(line string, parts ...string) {
+		if len(parts) == 1 {
+			log.Println(cmd.Help())
+			return
+		}
+
+		msg := noye.Message{from, channel, strings.Join(parts[1:], " ")}
+		sandbox.Respond(msg)
+	}
+	return cmd
+}
+
+func privMsg() Command {
+	cmd := newCommand("send text as a priv msg", nil)
+	cmd.fn = func(line string, parts ...string) {
+		if len(parts) == 1 {
+			log.Println(cmd.Help())
+			return
+		}
+
+		msg := noye.Message{from, "noye", strings.Join(parts[1:], " ")}
+		sandbox.Respond(msg)
+	}
+	return cmd
+}
+
+func rawMsg() Command {
+	cmd := newCommand("send text as a raw msg", nil)
+	cmd.fn = func(line string, parts ...string) {
+		if len(parts) == 1 {
+			log.Println(cmd.Help())
+			return
+		}
+
+		msg := noye.IrcMessage{
+			Source:  from + "!user@localhost",
+			Command: parts[1],
+		}
+		if len(parts) > 2 {
+			msg.Args = parts[2:]
+		}
+
+		sandbox.Listen(msg)
+	}
+	return cmd
+}
+
+func dump() Command {
+	cmd := newCommand("dumps the state of the REPL", nil)
+	cmd.fn = func(line string, parts ...string) {
+		log.Printf("from: '%s'\n", from)
+		log.Printf("channel: '%s'\n", channel)
+
+		log.Println("loaded scripts:")
+		for k, v := range sandbox.Scripts() {
+			log.Printf("%s @ %s\n", k, v.Path())
+		}
+	}
+	return cmd
+}
+
+func source() Command {
+	cmd := newCommand("dumps source for script", nil)
+	cmd.fn = func(line string, parts ...string) {
+		if len(parts) == 1 {
+			log.Println(cmd.Help())
+			return
+		}
+
+		for _, script := range sandbox.Scripts() {
+			if script.Name() != parts[1] {
+				continue
+			}
+
+			log.Printf("source for '%s' located at '%s'\n", parts[1], script.Path())
+			log.Println(strings.TrimSpace(script.Source()))
+		}
+	}
+	return cmd
+}
+
+func help() Command {
+	cmd := newCommand("display help for commands", nil)
+	cmd.fn = func(line string, parts ...string) {
+		if len(parts) == 1 {
+			printHelp()
+			return
+		}
+
+		if cmd, ok := commands[parts[1]]; ok {
+			log.Println(parts[1]+":", cmd.Help())
+		}
+	}
+	return cmd
 }
 
 var (
-	commands map[string]command
+	commands map[string]Command
 	sandbox  noye.Manager
 	scanner  = bufio.NewScanner(os.Stdin)
 	output   = make(chan string)
@@ -157,8 +208,27 @@ var (
 	channel  = "#noye"
 )
 
-// TODO make this a struct so commands can be more than just funcs
-type command func(string, ...string)
+type Command interface {
+	Help() string
+	Do(string, ...string)
+}
+
+type command struct {
+	help string
+	fn   func(string, ...string)
+}
+
+func (c command) Help() string {
+	return c.help
+}
+
+func (c command) Do(line string, parts ...string) {
+	c.fn(line, parts...)
+}
+
+func newCommand(help string, fn func(string, ...string)) command {
+	return command{help, fn}
+}
 
 func init() {
 	log.SetFlags(0)
@@ -178,14 +248,15 @@ func init() {
 	}
 
 	sandbox = ext.New(mock)
-	commands = map[string]command{
-		"load":   load,
-		"quit":   quit,
-		"set":    set,
-		"#":      chanMsg,
-		">":      privMsg,
-		".":      rawMsg,
-		"dump":   dump,
-		"source": source,
+	commands = map[string]Command{
+		"load":   load(),
+		"quit":   quit(),
+		"set":    set(),
+		"#":      chanMsg(),
+		">":      privMsg(),
+		".":      rawMsg(),
+		"dump":   dump(),
+		"source": source(),
+		"help":   help(),
 	}
 }
