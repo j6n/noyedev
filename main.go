@@ -36,8 +36,8 @@ func main() {
 
 func printHelp() {
 	var help []string
-	for name := range commands {
-		help = append(help, name)
+	for s, name := range commands {
+		help = append(help, fmt.Sprintf("[%s] %s", s, name.Name()))
 	}
 	log.Println("list of commands:", strings.Join(help, ", "))
 }
@@ -51,14 +51,15 @@ func handle(line string) {
 
 	if cmd, ok := commands[fields[0]]; ok {
 		cmd.Do(line, fields...)
-	} else {
-		printHelp()
+		return
 	}
+
+	printHelp()
 }
 
 // methods for the REPL
 func load() Command {
-	cmd := newCommand("load path/to/file.js")
+	cmd := newCommand("load path/to/file.js", "load")
 	cmd.fn = func(line string, parts ...string) {
 		if len(parts) == 1 {
 			log.Println(cmd.Help())
@@ -74,7 +75,7 @@ func load() Command {
 }
 
 func quit() Command {
-	cmd := newCommand("quits the REPL")
+	cmd := newCommand("quits the REPL", "quit")
 	cmd.fn = func(line string, parts ...string) {
 		os.Exit(0)
 	}
@@ -82,8 +83,19 @@ func quit() Command {
 }
 
 func set() Command {
-	cmd := newCommand("sets REPL options")
+	msg := fmt.Sprintf(`available options: 
+  ch: sets the channel
+  from: sets the nick messages come from
+current:
+  ch: %s, from: %s`, channel, from)
+
+	cmd := newCommand("sets REPL options", "set")
 	cmd.fn = func(line string, parts ...string) {
+		if len(parts) == 1 {
+			log.Println(msg)
+			return
+		}
+
 		so := func(in string) bool {
 			return parts[1] == in && len(parts) > 2
 		}
@@ -95,14 +107,14 @@ func set() Command {
 			log.Printf("setting from to '%s'\n", parts[1])
 			from = parts[1]
 		default:
-			log.Println("available options: 'ch #channel', 'from user'")
+			log.Println(msg)
 		}
 	}
 	return cmd
 }
 
 func chanMsg() Command {
-	cmd := newCommand("send text as a chan msg")
+	cmd := newCommand("send text as a chan msg", "chanmsg")
 	cmd.fn = func(line string, parts ...string) {
 		if len(parts) == 1 {
 			log.Println(cmd.Help())
@@ -116,7 +128,7 @@ func chanMsg() Command {
 }
 
 func privMsg() Command {
-	cmd := newCommand("send text as a priv msg")
+	cmd := newCommand("send text as a priv msg", "privmsg")
 	cmd.fn = func(line string, parts ...string) {
 		if len(parts) == 1 {
 			log.Println(cmd.Help())
@@ -130,7 +142,7 @@ func privMsg() Command {
 }
 
 func rawMsg() Command {
-	cmd := newCommand("send text as a raw msg")
+	cmd := newCommand("send text as a raw msg", "rawmsg")
 	cmd.fn = func(line string, parts ...string) {
 		if len(parts) == 1 {
 			log.Println(cmd.Help())
@@ -151,7 +163,7 @@ func rawMsg() Command {
 }
 
 func dump() Command {
-	cmd := newCommand("dumps the state of the REPL")
+	cmd := newCommand("dumps the state of the REPL", "dump")
 	cmd.fn = func(line string, parts ...string) {
 		log.Printf("from: '%s'\n", from)
 		log.Printf("channel: '%s'\n", channel)
@@ -165,7 +177,7 @@ func dump() Command {
 }
 
 func source() Command {
-	cmd := newCommand("dumps source for script")
+	cmd := newCommand("dumps source for script", "source")
 	cmd.fn = func(line string, parts ...string) {
 		if len(parts) == 1 {
 			log.Println(cmd.Help())
@@ -185,7 +197,7 @@ func source() Command {
 }
 
 func help() Command {
-	cmd := newCommand("display help for commands")
+	cmd := newCommand("display help for commands", "help")
 	cmd.fn = func(line string, parts ...string) {
 		if len(parts) == 1 {
 			printHelp()
@@ -193,8 +205,34 @@ func help() Command {
 		}
 
 		if cmd, ok := commands[parts[1]]; ok {
-			log.Println(parts[1]+":", cmd.Help())
+			log.Printf("[%s] %s: %s\n", parts[1], cmd.Name(), cmd.Help())
 		}
+	}
+	return cmd
+}
+
+func broadcast(private bool) Command {
+	cmd := newCommand("brodcasts via the message system", "broadcast")
+	cmd.fn = func(line string, parts ...string) {
+		if len(parts) == 1 || len(parts) < 3 {
+			log.Println(parts[0], "<key> <val>")
+			return
+		}
+
+		ext.Broadcast(parts[1], strings.Join(parts[2:], " "))
+	}
+	return cmd
+}
+
+func blacklist() Command {
+	cmd := newCommand("blacklists a key", "blacklist")
+	cmd.fn = func(line string, parts ...string) {
+		if len(parts) == 1 || len(parts) < 2 {
+			log.Println(parts[0], "<key1> <key2> ...")
+			return
+		}
+
+		ext.AddPrivate(parts[1:]...)
 	}
 	return cmd
 }
@@ -210,11 +248,13 @@ var (
 
 type Command interface {
 	Help() string
+	Name() string
 	Do(string, ...string)
 }
 
 type command struct {
 	help string
+	name string
 	fn   func(string, ...string)
 }
 
@@ -222,12 +262,16 @@ func (c command) Help() string {
 	return c.help
 }
 
+func (c command) Name() string {
+	return c.name
+}
+
 func (c command) Do(line string, parts ...string) {
 	c.fn(line, parts...)
 }
 
-func newCommand(help string) command {
-	return command{help: help}
+func newCommand(help, name string) command {
+	return command{help: help, name: name, fn: func(string, ...string) {}}
 }
 
 func init() {
@@ -249,14 +293,21 @@ func init() {
 
 	sandbox = ext.New(mock)
 	commands = map[string]Command{
-		"load":   load(),
-		"quit":   quit(),
-		"set":    set(),
-		"#":      chanMsg(),
-		">":      privMsg(),
-		".":      rawMsg(),
-		"dump":   dump(),
-		"source": source(),
-		"help":   help(),
+		"l": load(),
+		"q": quit(),
+		"s": set(),
+
+		"d": dump(),
+		"v": source(),
+
+		"#": chanMsg(),
+		">": privMsg(),
+		".": rawMsg(),
+
+		":": broadcast(true),
+		";": broadcast(false),
+		"!": blacklist(),
+
+		"?": help(),
 	}
 }
