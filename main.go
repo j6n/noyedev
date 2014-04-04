@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"log"
 	"os"
@@ -9,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/j6n/noye/ext"
-	"github.com/j6n/noye/mock"
 	"github.com/j6n/noye/noye"
 )
 
@@ -36,8 +34,8 @@ func main() {
 
 func printHelp() {
 	var help []string
-	for s, name := range commands {
-		help = append(help, fmt.Sprintf("[%s] %s", s, name.Name()))
+	for s, cmd := range commands {
+		help = append(help, fmt.Sprintf("[%s] %s", s, cmd.Name()))
 	}
 	log.Println("list of commands:", strings.Join(help, ", "))
 }
@@ -83,30 +81,19 @@ func quit() Command {
 }
 
 func set() Command {
-	msg := fmt.Sprintf(`available options: 
-  ch: sets the channel
-  from: sets the nick messages come from
-current:
-  ch: %s, from: %s`, channel, from)
-
 	cmd := newCommand("sets REPL options", "set")
 	cmd.fn = func(line string, parts ...string) {
-		if len(parts) == 1 {
+		msg := getOps()
+		if len(parts) < 2 {
 			log.Println(msg)
 			return
 		}
 
-		so := func(in string) bool {
-			return parts[1] == in && len(parts) > 2
-		}
-		switch {
-		case so("ch"):
-			log.Printf("setting channel to '%s'\n", parts[1])
-			channel = parts[1]
-		case so("from"):
-			log.Printf("setting from to '%s'\n", parts[1])
-			from = parts[1]
-		default:
+		if o, ok := opts[parts[1]]; ok {
+			old, val := o.Val, strings.Join(parts[2:], " ")
+			o.Set(val)
+			log.Printf("set '%s' to '%s' (was: '%s')\n", o.Name, val, old)
+		} else {
 			log.Println(msg)
 		}
 	}
@@ -121,7 +108,7 @@ func chanMsg() Command {
 			return
 		}
 
-		msg := noye.Message{from, channel, strings.Join(parts[1:], " ")}
+		msg := noye.Message{opts["from"].String(), opts["channel"].String(), strings.Join(parts[1:], " ")}
 		sandbox.Respond(msg)
 	}
 	return cmd
@@ -135,7 +122,7 @@ func privMsg() Command {
 			return
 		}
 
-		msg := noye.Message{from, "noye", strings.Join(parts[1:], " ")}
+		msg := noye.Message{opts["from"].String(), "noye", strings.Join(parts[1:], " ")}
 		sandbox.Respond(msg)
 	}
 	return cmd
@@ -150,7 +137,7 @@ func rawMsg() Command {
 		}
 
 		msg := noye.IrcMessage{
-			Source:  from + "!user@localhost",
+			Source:  fmt.Sprintf("%s!user@localhost", opts["from"]),
 			Command: parts[1],
 		}
 		if len(parts) > 2 {
@@ -165,8 +152,10 @@ func rawMsg() Command {
 func dump() Command {
 	cmd := newCommand("dumps the state of the REPL", "dump")
 	cmd.fn = func(line string, parts ...string) {
-		log.Printf("from: '%s'\n", from)
-		log.Printf("channel: '%s'\n", channel)
+		log.Println("current options:")
+		for k, v := range opts {
+			log.Printf("  %s: '%s'\n", k, v.Val)
+		}
 
 		log.Println("loaded scripts:")
 		for k, v := range sandbox.Scripts() {
@@ -235,79 +224,4 @@ func blacklist() Command {
 		ext.AddPrivate(parts[1:]...)
 	}
 	return cmd
-}
-
-var (
-	commands map[string]Command
-	sandbox  noye.Manager
-	scanner  = bufio.NewScanner(os.Stdin)
-	output   = make(chan string)
-	from     = "test"
-	channel  = "#noye"
-)
-
-type Command interface {
-	Help() string
-	Name() string
-	Do(string, ...string)
-}
-
-type command struct {
-	help string
-	name string
-	fn   func(string, ...string)
-}
-
-func (c command) Help() string {
-	return c.help
-}
-
-func (c command) Name() string {
-	return c.name
-}
-
-func (c command) Do(line string, parts ...string) {
-	c.fn(line, parts...)
-}
-
-func newCommand(help, name string) command {
-	return command{help: help, name: name, fn: func(string, ...string) {}}
-}
-
-func init() {
-	log.SetFlags(0)
-
-	mock := mock.NewMockBot()
-	mock.PrivmsgFn = func(target, msg string) {
-		output <- fmt.Sprintf("(PRIVMSG) %s: %s", target, msg)
-	}
-	mock.JoinFn = func(target string) {
-		output <- fmt.Sprintf("(JOIN) %s", target)
-	}
-	mock.PartFn = func(target string) {
-		output <- fmt.Sprintf("(PART) %s", target)
-	}
-	mock.SendFn = func(f string, a ...interface{}) {
-		output <- fmt.Sprintf("(SEND) %s", fmt.Sprintf(f, a...))
-	}
-
-	sandbox = ext.New(mock)
-	commands = map[string]Command{
-		"l": load(),
-		"q": quit(),
-		"s": set(),
-
-		"d": dump(),
-		"v": source(),
-
-		"#": chanMsg(),
-		">": privMsg(),
-		".": rawMsg(),
-
-		":": broadcast(true),
-		";": broadcast(false),
-		"!": blacklist(),
-
-		"?": help(),
-	}
 }
