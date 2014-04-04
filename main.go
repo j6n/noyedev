@@ -227,7 +227,7 @@ func (c command) Do(line string, parts ...string) {
 }
 
 func newCommand(help string) command {
-	return command{help}
+	return command{help: help}
 }
 
 func init() {
