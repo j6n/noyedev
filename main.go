@@ -108,7 +108,7 @@ func chanMsg() Command {
 			return
 		}
 
-		msg := noye.Message{opts["from"].String(), opts["channel"].String(), strings.Join(parts[1:], " ")}
+		msg := noye.Message{opts["from"].String(), opts["chan"].String(), strings.Join(parts[1:], " ")}
 		sandbox.Respond(msg)
 	}
 	return cmd
@@ -158,8 +158,8 @@ func dump() Command {
 		}
 
 		log.Println("loaded scripts:")
-		for k, v := range sandbox.Scripts() {
-			log.Printf("%s @ %s\n", k, v.Path())
+		for _, v := range sandbox.Scripts() {
+			log.Printf("%s @ %s\n", v.Name(), v.Path())
 		}
 	}
 	return cmd
