@@ -21,4 +21,5 @@ _testmain.go
 
 *.exe
 *.db
+*.yaml
 scripts/*.js
