@@ -64,6 +64,7 @@ func init() {
 		"d": dump(),
 		"$": debug(),
 		"v": source(),
+		"r": reload(),
 
 		"#": chanMsg(),
 		">": privMsg(),

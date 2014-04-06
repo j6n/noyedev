@@ -203,6 +203,14 @@ func debug() Command {
 	return cmd
 }
 
+func reload() Command {
+	cmd := newCommand("reloads the base.js", "reload")
+	cmd.fn = func(line string, parts ...string) {
+		sandbox.ReloadBase()
+	}
+	return cmd
+}
+
 func getUser() noye.User {
 	return irc.ParseUser(fmt.Sprintf("%s!user@localhost", opts["from"]))
 }
