@@ -12,6 +12,16 @@ import (
 	"github.com/j6n/noye/store"
 )
 
+func loadAndWatch(file string) {
+	if err := sandbox.Load(file); err != nil {
+		log.Printf("error (auto)loading '%s': %s\n", file, err)
+		return
+	}
+	if err := reloader.Watch(file); err != nil {
+		log.Printf("err watching: %s, %s\n", file, err)
+	}
+}
+
 // methods for the REPL
 func load() Command {
 	cmd := newCommand("load path/to/file.js", "load")
@@ -21,10 +31,7 @@ func load() Command {
 			return
 		}
 
-		file := parts[1]
-		if err := sandbox.Load(file); err != nil {
-			log.Printf("error loading '%s': %s\n", file, err)
-		}
+		loadAndWatch(parts[1])
 	}
 	return cmd
 }
@@ -164,7 +171,7 @@ func help() Command {
 	return cmd
 }
 
-func broadcast(private bool) Command {
+func broadcast() Command {
 	cmd := newCommand("brodcasts via the message system", "broadcast")
 	cmd.fn = func(line string, parts ...string) {
 		if len(parts) == 1 || len(parts) < 3 {

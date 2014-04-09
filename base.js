@@ -20,7 +20,13 @@ share = {
 };
 
 http = {
-  "get": _http_get,
+  "get":     _http_get,
+  "follow":  _http_follow,
+  "shorten": _http_shorten,
+};
+
+html = {
+  "new":  _html_new,
 };
 
 share.init("auth", function(data) {

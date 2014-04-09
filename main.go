@@ -8,18 +8,19 @@ import (
 	"os/signal"
 	"strings"
 
-	"github.com/j6n/noye/store"
+	"code.google.com/p/go.exp/fsnotify"
 
 	"github.com/j6n/noye/config"
-
 	"github.com/j6n/noye/ext"
 	"github.com/j6n/noye/mock"
 	"github.com/j6n/noye/noye"
+	"github.com/j6n/noye/store"
 )
 
 var (
 	commands map[string]Command
 	sandbox  noye.Manager
+	reloader *fsnotify.Watcher
 
 	scanner = bufio.NewScanner(os.Stdin)
 	output  = make(chan string)
@@ -34,12 +35,12 @@ var (
 )
 
 func init() {
-	log.SetFlags(0)
-
-	m := conf.ToMap()
-	for k, v := range m {
-		db.Set("config", k, v)
+	var err error
+	if reloader, err = fsnotify.NewWatcher(); err != nil {
+		log.Fatalf("creating reloader: %s\n", err)
 	}
+
+	log.SetFlags(0)
 
 	mock := mock.NewMockBot()
 	mock.PrivmsgFn = func(target, msg string) {
@@ -70,7 +71,7 @@ func init() {
 		">": privMsg(),
 		".": rawMsg(),
 
-		":": broadcast(true),
+		":": broadcast(),
 		"!": blacklist(),
 
 		"?": help(),
@@ -81,6 +82,8 @@ func main() {
 	wait := make(chan os.Signal, 1)
 	signal.Notify(wait, os.Interrupt)
 
+	go evLoop() // start auto-reload loop
+
 	// TODO find an alternative to \r for terminals that don't support it?
 	go func() {
 		for {
@@ -88,6 +91,11 @@ func main() {
 			fmt.Printf("%s> ", "noye")
 		}
 	}()
+
+	// copy config to db
+	for k, v := range conf.ToMap() {
+		db.Set("config", k, v)
+	}
 
 	fmt.Printf("%s> ", "noye")
 	for err := scanner.Err(); err == nil && scanner.Scan(); {
@@ -119,4 +127,18 @@ func handle(line string) {
 	}
 
 	printHelp()
+}
+
+func evLoop() {
+	for {
+		select {
+		case ev := <-reloader.Event:
+			switch {
+			case ev.IsDelete():
+				loadAndWatch(ev.Name)
+			}
+		case err := <-reloader.Error:
+			log.Printf("err watching: %s\n", err)
+		}
+	}
 }
