@@ -6,14 +6,14 @@ import (
 	"os"
 	"strings"
 
-	"github.com/j6n/noye/ext"
-	"github.com/j6n/noye/irc"
+	"github.com/j6n/noye/core/irc"
+	"github.com/j6n/noye/core/script"
+	"github.com/j6n/noye/core/store"
 	"github.com/j6n/noye/noye"
-	"github.com/j6n/noye/store"
 )
 
 func loadAndWatch(file string) {
-	if err := sandbox.Load(file); err != nil {
+	if err := sandbox.LoadFile(file); err != nil {
 		log.Printf("error (auto)loading '%s': %s\n", file, err)
 		return
 	}
@@ -179,7 +179,7 @@ func broadcast() Command {
 			return
 		}
 
-		ext.Broadcast(parts[1], strings.Join(parts[2:], " "))
+		script.Broadcast(parts[1], strings.Join(parts[2:], " "))
 	}
 	return cmd
 }
@@ -192,7 +192,7 @@ func blacklist() Command {
 			return
 		}
 
-		ext.AddPrivate(parts[1:]...)
+		script.AddPrivate(parts[1:]...)
 	}
 	return cmd
 }

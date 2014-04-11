@@ -10,11 +10,10 @@ import (
 
 	"code.google.com/p/go.exp/fsnotify"
 
-	"github.com/j6n/noye/config"
-	"github.com/j6n/noye/ext"
-	"github.com/j6n/noye/mock"
+	"github.com/j6n/noye/core/config"
+	"github.com/j6n/noye/core/script"
+	"github.com/j6n/noye/core/store"
 	"github.com/j6n/noye/noye"
-	"github.com/j6n/noye/store"
 )
 
 var (
@@ -42,7 +41,7 @@ func init() {
 
 	log.SetFlags(0)
 
-	mock := mock.NewMockBot()
+	mock := noye.NewMockBot()
 	mock.PrivmsgFn = func(target, msg string) {
 		output <- fmt.Sprintf("(PRIVMSG) %s: %s", target, msg)
 	}
@@ -56,7 +55,7 @@ func init() {
 		output <- fmt.Sprintf("(SEND) %s", fmt.Sprintf(f, a...))
 	}
 
-	sandbox = ext.New(mock)
+	sandbox = script.New(mock)
 	commands = map[string]Command{
 		"l": load(),
 		"q": quit(),
