@@ -26,7 +26,7 @@ http = {
 };
 
 html = {
-  "new":  _html_new,
+  "new": _html_new,
 };
 
 share.init("auth", function(data) {
